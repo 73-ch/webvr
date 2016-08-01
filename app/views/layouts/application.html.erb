@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Webvr</title>
+  <%= stylesheet_link_tag    'application', media: 'all', 'data-turbolinks-track' => true %>
+  <%= javascript_include_tag 'application', 'data-turbolinks-track' => true %>
+  <%= csrf_meta_tags %>
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no"> <!-- No pinch zoom on mobile -->
+  <meta name="mobile-web-app-capable" content="yes"> <!-- Launch fullscreen when added to home screen -->
+  <meta name="apple-mobile-web-app-capable" content="yes"> <!-- Fullscreen Landscape on iOS -->
+  <script>
+    // Prevents the polyfill from initializing automatically.
+    var WebVRConfig = { DEFER_INITIALIZATION: true }
+    if (WGLUUrl.getBool('polyfill', false)) { InitializeWebVRPolyfill(); }
+  </script>
+</head>
+<body>
+
+<%= yield %>
+
+</body>
+</html>
