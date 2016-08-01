@@ -38,6 +38,7 @@ var d_motion;
 var device;
 var aig;
 var acc;
+var vrDisplay = null;
 
 function clicked(){
   alpha = 0;
@@ -55,10 +56,31 @@ window.onload = function(){
       console.log(channel);
 
       c = document.getElementById('canvas');
-      var gl = c.getContext('webgl');
+      var gl = c.getContext('webgl', {antialias: !VRSamplesUtil.isMobile()});
+      var stats = new WGLUStats(gl);
       if(!gl){
         alert('webgl not supported!');
         return;
+      }
+      if (navigator.getVRDisplays) {
+        navigator.getVRDisplays().then(function (displays) {
+          // Use the first display in the array if one is available. If multiple
+          // displays are present you may want to present the user with a way to
+          // select which display they wish to use.
+          if (displays.length > 0) {
+            vrDisplay = displays[0];
+
+            // Being able to re-center your view is a useful thing in VR. It's
+            // good practice to provide your users with a simple way to do so.
+            VRSamplesUtil.addButton("Reset Pose", "R", null, function () { vrDisplay.resetPose(); });
+          } else {
+            VRSamplesUtil.addInfo("WebVR supported, but no VRDisplays found.", 3000);
+          }
+        });
+      } else if (navigator.getVRDevices) {
+        VRSamplesUtil.addError("Your browser supports WebVR but not the latest version. See <a href='http://webvr.info'>webvr.info</a> for more info.");
+      } else {
+        VRSamplesUtil.addError("Your browser does not support WebVR. See <a href='http://webvr.info'>webvr.info</a> for assistance.");
       }
       gl.clearColor(0.0, 0.0, 0.0, 1.0);
       gl.clearDepth(1.0);
@@ -127,6 +149,8 @@ window.onload = function(){
       render();
 
       function render(){
+        stats.begin();
+        console.log(vrDisplay);
         c.height = window.innerHeight;
         c.width = window.innerWidth;
         gl.viewport(0.0, 0.0, c.width, c.height);
@@ -134,54 +158,70 @@ window.onload = function(){
         var radians = (count % 360) * Math.PI / 180;
         m.perspective(fovy, aspect, near, far, pMatrix);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        m.lookAt(cameraPosition, centerPoint, cameraUp, vMatrix);
-        m.multiply(pMatrix, vMatrix, vpMatrix);
 
         setAttribute(boxVboList, attLocation, attStride, boxIndexBuffer);
 
         m.identity(mMatrix);
-        q.rotate(alpha, [1.0, 0.0, 0.0], qt_a);
-        q.rotate(beta, [0.0, 0.0, 1.0], qt_b);
-        q.rotate(gamma, [0.0, 1.0, 0.0], qt_g);
-        q.multiply(qt_a, qt_b, qt);
-        q.multiply(qt, qt_g, qt);
-        q.toMatIV(qt, qMatrix);
-        m.multiply(mMatrix, qMatrix, mMatrix);
-        m.multiply(vpMatrix, mMatrix, mvpMatrix);
 
-        gl.uniformMatrix4fv(uniLocation.mvpMatrix, false, mvpMatrix);
+        if (vrDisplay) {
+          // If a VRDisplay was found, create a matrix based on its pose.
+          var pose = vrDisplay.getPose();
 
-        gl.drawElements(gl.LINES, cubeData.i.length, gl.UNSIGNED_SHORT, 0);
-
-        setAttribute(j_vbo_list, attLocation, attStride, j_index_buffer);
-
-        for(var i = 0; i < box_num; i++){
-          if(count % 50 == 0){
-            for (var g = 0; g < 3; g++) {
-              trans[i][g] = Math.round(trans[i][g]);
-            };
-            ran = Math.random() * 6 - 3;
-            num = (ran + ran / Math.abs(ran))>>0;
-            if(Math.abs(trans[i][Math.abs(num) - 1] + 2.0 * num / Math.abs(num)) <= 4){
-              vel_num[i] = num;
-            }else{
-              vel_num[i] = 0.0;
-            }
-          }
-
-          if(vel_num[i] != 0.0){
-            trans[i][Math.abs(vel_num[i]) - 1] += vel_num[i] / Math.abs(vel_num[i]) * 0.04;
-          };
-
-          if(Math.floor(count % 25) != Math.floor(Math.random() * 10)) {
-            m.identity(mMatrix);
-            m.multiply(mMatrix, qMatrix, mMatrix);
-            m.translate(mMatrix, trans[i], mMatrix);
-            m.multiply(vpMatrix, mMatrix, mvpMatrix);
-            gl.uniformMatrix4fv(uniLocation.mvpMatrix, false, mvpMatrix);
-            gl.drawElements(gl.TRIANGLES, junior_cube.i.length, gl.UNSIGNED_SHORT, 0);
-          };
+          // The pose and orientation may be null if the VRDisplay cannot report
+          // them for some reason. In that case, use reasonable defaults:
+          var orientation = pose.orientation;
+          var position = pose.position;
+          if (!orientation) { orientation = [0, 0, 0, 1]; }
+          if (!position) { position = [0, 0, 0]; }
+          m.fromRotationTranslation(vMatrix, orientation, position);
+          m.inverse(vMatrix, vMatrix);
+        } else {
+          m.lookAt(cameraPosition, centerPoint, cameraUp, vMatrix);
+          q.rotate(alpha, [1.0, 0.0, 0.0], qt_a);
+          q.rotate(beta, [0.0, 0.0, 1.0], qt_b);
+          q.rotate(gamma, [0.0, 1.0, 0.0], qt_g);
+          q.multiply(qt_a, qt_b, qt);
+          q.multiply(qt, qt_g, qt);
+          q.toMatIV(qt, qMatrix);
         }
+          m.multiply(pMatrix, vMatrix, vpMatrix);
+          m.multiply(mMatrix, qMatrix, mMatrix);
+          m.multiply(vpMatrix, mMatrix, mvpMatrix);
+
+          gl.uniformMatrix4fv(uniLocation.mvpMatrix, false, mvpMatrix);
+
+          gl.drawElements(gl.LINES, cubeData.i.length, gl.UNSIGNED_SHORT, 0);
+
+          setAttribute(j_vbo_list, attLocation, attStride, j_index_buffer);
+
+          for(var i = 0; i < box_num; i++){
+            if(count % 50 == 0){
+              for (var g = 0; g < 3; g++) {
+                trans[i][g] = Math.round(trans[i][g]);
+              };
+              ran = Math.random() * 6 - 3;
+              num = (ran + ran / Math.abs(ran))>>0;
+              if(Math.abs(trans[i][Math.abs(num) - 1] + 2.0 * num / Math.abs(num)) <= 4){
+                vel_num[i] = num;
+              }else{
+                vel_num[i] = 0.0;
+              }
+            }
+
+            if(vel_num[i] != 0.0){
+              trans[i][Math.abs(vel_num[i]) - 1] += vel_num[i] / Math.abs(vel_num[i]) * 0.04;
+            };
+
+            if(Math.floor(count % 25) != Math.floor(Math.random() * 10)) {
+              m.identity(mMatrix);
+              m.multiply(mMatrix, qMatrix, mMatrix);
+              m.translate(mMatrix, trans[i], mMatrix);
+              m.multiply(vpMatrix, mMatrix, mvpMatrix);
+              gl.uniformMatrix4fv(uniLocation.mvpMatrix, false, mvpMatrix);
+              gl.drawElements(gl.TRIANGLES, junior_cube.i.length, gl.UNSIGNED_SHORT, 0);
+            };
+        }
+        stats.end();
 
         gl.flush();
         requestAnimationFrame(render);

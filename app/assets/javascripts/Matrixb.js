@@ -232,6 +232,38 @@ function matIV(){
 		dest[15] = ( i * t - j * r + k * q) * ivd;
 		return dest;
 	};
+	this.fromRotationTranslation = function(t, a, n) {
+    var r = a[0], o = a[1], u = a[2], l = a[3],
+    		e = r + r,
+    		M = o + o,
+				s = u + u,
+				i = r * e,
+				c = r * M,
+				h = r * s,
+				S = o * M,
+				I = o * s,
+				f = u * s,
+				x = l * e,
+				D = l * M,
+        F = l * s;
+    return t[0] = 1 - (S + f),
+           t[1] = c + F,
+           t[2] = h - D,
+           t[3] = 0,
+           t[4] = c - F,
+           t[5] = 1 - (i + f),
+           t[6] = I + x,
+           t[7] = 0,
+           t[8] = h + D,
+           t[9] = I - x,
+           t[10] = 1 - (i + S),
+           t[11] = 0,
+           t[12] = n[0],
+           t[13] = n[1],
+           t[14] = n[2],
+           t[15] = 1,
+           t
+  }
 }
 
 function qtnIV(){
