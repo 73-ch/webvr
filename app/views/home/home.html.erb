@@ -50,7 +50,7 @@ function clicked(){
 window.onload = function(){
   var getDevice = (function(){
     var ua = navigator.userAgent;
-    if(ua.indexOf('iPhone') <= 0 && ua.indexOf('iPod') <= 0 && ua.indexOf('Android') <= 0 || ua.indexOf('Mobile') <= 0){
+    // if(ua.indexOf('iPhone') <= 0 && ua.indexOf('iPod') <= 0 && ua.indexOf('Android') <= 0 || ua.indexOf('Mobile') <= 0){
       var dispatcher = new WebSocketRails("dry-falls-25691.herokuapp.com/websocket");
       var channel = dispatcher.subscribe("<%= @channel %>");
       console.log(channel);
@@ -177,13 +177,13 @@ window.onload = function(){
           m.inverse(vMatrix, vMatrix);
         } else {
           m.lookAt(cameraPosition, centerPoint, cameraUp, vMatrix);
-          q.rotate(alpha, [1.0, 0.0, 0.0], qt_a);
+        }
+        q.rotate(alpha, [1.0, 0.0, 0.0], qt_a);
           q.rotate(beta, [0.0, 0.0, 1.0], qt_b);
           q.rotate(gamma, [0.0, 1.0, 0.0], qt_g);
           q.multiply(qt_a, qt_b, qt);
           q.multiply(qt, qt_g, qt);
           q.toMatIV(qt, qMatrix);
-        }
           m.multiply(pMatrix, vMatrix, vpMatrix);
           m.multiply(mMatrix, qMatrix, mMatrix);
           m.multiply(vpMatrix, mMatrix, mvpMatrix);
@@ -292,9 +292,9 @@ window.onload = function(){
         }
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
       }
-    }else{
-      alert("This devise is not supported")
-    }
+    // }else{
+    //   alert("This devise is not supported")
+    // }
   })();
 };
 
