@@ -1,131 +1,262 @@
-<canvas id="webgl-canvas"></canvas>
-    <script>
-      /* global mat4, VRCubeSea, VRSamplesUtil, WGLUStats, WGLUTextureLoader */
-      (function () {
-      "use strict";
+<script id="vs" type="x-shader/x-vertex">
+  attribute vec3 position;
+  attribute vec4 color;
+  uniform mat4 mvpMatrix;
+  varying vec4 vColor;
+  void main(){
+    gl_Position = mvpMatrix * vec4(position, 1.0);
+    vColor = color;
+  }
+</script>
+<script id="fs" type="x-shader/x-fragment">
+  precision mediump float;
+  varying vec4 vColor;
+  void main(){
+    gl_FragColor = vColor;
+  }
+</script>
+</head>
+<body>
+  <p>右のURLをスマートフォンで開いてください http://dry-falls-25691.herokuapp.com/send/<%= @channel %></p>
+  <button onClick="clicked()">ANGLE RESET</button>
+  <canvas id="canvas"></canvas>
+</body>
+<script>
+var c;
+var d_motion;
+var interval;
+var z = 20.0;
+var q = new qtnIV();
+var qt_a = q.identity(q.create());
+var qt_b = q.identity(q.create());
+var qt_g = q.identity(q.create());
+var qt = q.identity(q.create());
+var alpha = 0,
+    beta = 0,
+    gamma = 0;
+var d_motion;
+var device;
+var aig;
+var acc;
 
-      var vrDisplay = null;
-      var projectionMat = mat4.create();
-      var viewMat = mat4.create();
+function clicked(){
+  alpha = 0;
+  beta = 0;
+  gamma = 0;
+}
 
-      // ===================================================
-      // WebGL scene setup. This code is not WebVR specific.
-      // ===================================================
 
-      // WebGL setup.
-      var webglCanvas = document.getElementById("webgl-canvas");
-      var glAttribs = {
-        // An alpha channel on the backbuffer is not necessary for many WebVR
-        // scenes. Disable it when unneeded to save memory/performance on some
-        // systems.
-        alpha: false,
-        // Disable antialiasing on mobile devices for performance reasons.
-        antialias: !VRSamplesUtil.isMobile()
-      };
-      var gl = webglCanvas.getContext("webgl", glAttribs);
-      gl.clearColor(0.1, 0.2, 0.3, 1.0); // Non-black makes debugging easier.
-      gl.enable(gl.DEPTH_TEST);
-      gl.enable(gl.CULL_FACE);
+window.onload = function(){
+  var getDevice = (function(){
+    var ua = navigator.userAgent;
+    if(ua.indexOf('iPhone') <= 0 && ua.indexOf('iPod') <= 0 && ua.indexOf('Android') <= 0 || ua.indexOf('Mobile') <= 0){
+      var dispatcher = new WebSocketRails("evening-stream-72370.herokuapp.com/websocket");
+      var channel = dispatcher.subscribe("<%= @channel %>");
+      console.log(channel);
 
-      // Load a simple scene consisting of a grid of floating cubes.
-      var textureLoader = new WGLUTextureLoader(gl);
-      var texture = textureLoader.loadTexture("textures/cube-sea.png");
-      var cubeSea = new VRCubeSea(gl, texture);
-
-      var stats = new WGLUStats(gl);
-
-      function onResize () {
-        webglCanvas.width = webglCanvas.offsetWidth * window.devicePixelRatio;
-        webglCanvas.height = webglCanvas.offsetHeight * window.devicePixelRatio;
-
-        // The viewport and projection matrix will change frequently when we
-        // begin rendering in stereo, but for now they only need to be updated
-        // when the window is resized.
-        gl.viewport(0, 0, webglCanvas.width, webglCanvas.height);
-        mat4.perspective(projectionMat, Math.PI*0.4, webglCanvas.width/webglCanvas.height, 0.1, 1024.0);
+      c = document.getElementById('canvas');
+      var gl = c.getContext('webgl');
+      if(!gl){
+        alert('webgl not supported!');
+        return;
       }
-      window.addEventListener("resize", onResize, false);
-      onResize();
+      gl.clearColor(0.0, 0.0, 0.0, 1.0);
+      gl.clearDepth(1.0);
+      gl.enable(gl.BLEND);
+      gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE);
 
-      // ================================
-      // WebVR-specific code begins here.
-      // ================================
+      var vertexSource = document.getElementById('vs').textContent,
+          fragmentSource = document.getElementById('fs').textContent,
+          programs = shaderProgram(vertexSource, fragmentSource);
+      var attLocation = [];
+      attLocation[0] = gl.getAttribLocation(programs, 'position');
+      attLocation[1] = gl.getAttribLocation(programs, 'color');
+      var attStride = [];
+      attStride[0] = 3;
+      attStride[1] = 4;
 
-      // Since it's a new API not all browsers will have WebVR support. As such
-      // it's a good idea to check that the API is available before attempting
-      // to call it.
-      if (navigator.getVRDisplays) {
-        navigator.getVRDisplays().then(function (displays) {
-          // Use the first display in the array if one is available. If multiple
-          // displays are present you may want to present the user with a way to
-          // select which display they wish to use.
-          if (displays.length > 0) {
-            vrDisplay = displays[0];
+      var cubeSide = 10;
+      var cubeData = cubeLattice(cubeSide, [0.3, 1.0, 1.0, 0.3], 6),
+          vPositionBuffer = generateVBO(cubeData.p),
+          vColorBuffer = generateVBO(cubeData.c),
+          boxVboList = [vPositionBuffer, vColorBuffer],
+          boxIndexBuffer = generateIBO(cubeData.i);
 
-            // Being able to re-center your view is a useful thing in VR. It's
-            // good practice to provide your users with a simple way to do so.
-            VRSamplesUtil.addButton("Reset Pose", "R", null, function () { vrDisplay.resetPose(); });
-          } else {
-            VRSamplesUtil.addInfo("WebVR supported, but no VRDisplays found.", 3000);
-          }
-        });
-      } else if (navigator.getVRDevices) {
-        VRSamplesUtil.addError("Your browser supports WebVR but not the latest version. See <a href='http://webvr.info'>webvr.info</a> for more info.");
-      } else {
-        VRSamplesUtil.addError("Your browser does not support WebVR. See <a href='http://webvr.info'>webvr.info</a> for assistance.");
+      var junior_cube = cube(2, [0.2 ,0.2, 0.4, 0.5]),
+          j_position_bugger = generateVBO(junior_cube.p),
+          j_color_buffer = generateVBO(junior_cube.c),
+          j_vbo_list = [j_position_bugger, j_color_buffer],
+          j_index_buffer = generateIBO(junior_cube.i);
+
+
+      var uniLocation = [];
+      uniLocation.mvpMatrix = gl.getUniformLocation(programs, 'mvpMatrix');
+
+      var m = new matIV();
+      var mMatrix = m.identity(m.create());
+      var vMatrix = m.identity(m.create());
+      var pMatrix = m.identity(m.create());
+      var vpMatrix = m.identity(m.create());
+      var mvpMatrix = m.identity(m.create());
+      var qMatrix = m.identity(m.create());
+
+      var cameraPosition = [0.0, 0.0, z],
+          centerPoint = [0.0, 0.0, 0.0],
+          cameraUp = [0.0, 1.0, 0.0];
+
+      var fovy = 45;
+      var near = 0.5;
+      var far = 100.0;
+
+      var count = 0,
+          cameraX = 0,
+          cameraY = 0,
+          cameraZ = 0;
+
+      var trans = [],
+          ran,
+          vel_num = [],
+          box_num = 10;
+
+      for(var i = 0; i < box_num; i++){
+        trans[i] = [0, 0, 0];
+        ran = Math.random() * 6 - 3;
+        vel_num[i] = (ran + ran / Math.abs(ran))>>0;
       }
 
-      // Main rendering loop
-      function onAnimationFrame () {
-        stats.begin();
+      render();
 
-        // The normal requestAnimationFrame is used here because the scene is
-        // being not being presented to the VRDisplay, and so should run at the
-        // refresh rate of the users monitor instead of the headset.
-        window.requestAnimationFrame(onAnimationFrame);
-
+      function render(){
+        c.height = window.innerHeight;
+        c.width = window.innerWidth;
+        gl.viewport(0.0, 0.0, c.width, c.height);
+        var aspect = c.width / c.height;
+        var radians = (count % 360) * Math.PI / 180;
+        m.perspective(fovy, aspect, near, far, pMatrix);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        m.lookAt(cameraPosition, centerPoint, cameraUp, vMatrix);
+        m.multiply(pMatrix, vMatrix, vpMatrix);
 
-        if (vrDisplay) {
-          // If a VRDisplay was found, create a matrix based on its pose.
-          var pose = vrDisplay.getPose();
+        setAttribute(boxVboList, attLocation, attStride, boxIndexBuffer);
 
-          // The pose and orientation may be null if the VRDisplay cannot report
-          // them for some reason. In that case, use reasonable defaults:
-          var orientation = pose.orientation;
-          var position = pose.position;
-          if (!orientation) { orientation = [0, 0, 0, 1]; }
-          if (!position) { position = [0, 0, 0]; }
+        m.identity(mMatrix);
+        q.rotate(alpha, [1.0, 0.0, 0.0], qt_a);
+        q.rotate(beta, [0.0, 0.0, 1.0], qt_b);
+        q.rotate(gamma, [0.0, 1.0, 0.0], qt_g);
+        q.multiply(qt_a, qt_b, qt);
+        q.multiply(qt, qt_g, qt);
+        q.toMatIV(qt, qMatrix);
+        m.multiply(mMatrix, qMatrix, mMatrix);
+        m.multiply(vpMatrix, mMatrix, mvpMatrix);
 
-          // Create a Model/View matrix from the orientation and position.
-          // From the glMatrix docs:
-          // Creates a matrix from a quaternion rotation and vector translation
-          // This is equivalent to (but much faster than):
-          //
-          //     mat4.identity(dest);
-          //     mat4.translate(dest, vec);
-          //     var quatMat = mat4.create();
-          //     quat4.toMat4(quat, quatMat);
-          //     mat4.multiply(dest, quatMat);
-          mat4.fromRotationTranslation(viewMat, orientation, position);
+        gl.uniformMatrix4fv(uniLocation.mvpMatrix, false, mvpMatrix);
 
-          // Invert because we're describing the camera's position in space,
-          // so the objects in the scene need to move "in reverse" to get the
-          // appropriate effect.
-          mat4.invert(viewMat, viewMat);
-        } else {
-          // If no VRDisplay was found, create a matrix using a fallback method.
-          mat4.identity(viewMat);
+        gl.drawElements(gl.LINES, cubeData.i.length, gl.UNSIGNED_SHORT, 0);
+
+        setAttribute(j_vbo_list, attLocation, attStride, j_index_buffer);
+
+        for(var i = 0; i < box_num; i++){
+          if(count % 50 == 0){
+            for (var g = 0; g < 3; g++) {
+              trans[i][g] = Math.round(trans[i][g]);
+            };
+            ran = Math.random() * 6 - 3;
+            num = (ran + ran / Math.abs(ran))>>0;
+            if(Math.abs(trans[i][Math.abs(num) - 1] + 2.0 * num / Math.abs(num)) <= 4){
+              vel_num[i] = num;
+            }else{
+              vel_num[i] = 0.0;
+            }
+          }
+
+          if(vel_num[i] != 0.0){
+            trans[i][Math.abs(vel_num[i]) - 1] += vel_num[i] / Math.abs(vel_num[i]) * 0.04;
+          };
+
+          if(Math.floor(count % 25) != Math.floor(Math.random() * 10)) {
+            m.identity(mMatrix);
+            m.multiply(mMatrix, qMatrix, mMatrix);
+            m.translate(mMatrix, trans[i], mMatrix);
+            m.multiply(vpMatrix, mMatrix, mvpMatrix);
+            gl.uniformMatrix4fv(uniLocation.mvpMatrix, false, mvpMatrix);
+            gl.drawElements(gl.TRIANGLES, junior_cube.i.length, gl.UNSIGNED_SHORT, 0);
+          };
         }
 
-        // Render the scene using the matrix.
-        cubeSea.render(projectionMat, viewMat, stats);
+        gl.flush();
+        requestAnimationFrame(render);
 
-        // Render the FPS counter.
-        stats.renderOrtho();
+        count++;
+      };
 
-        stats.end();
+      channel.bind("send", function(data) {
+        console.log(data.aig);
+        console.log(data.acc);
+        if (data.d){
+          var inter = data.i,
+              rotation_rate = data.d;
+          alpha += data.d.alpha * inter * Math.PI / 180 * -1;
+          beta += data.d.beta * inter * Math.PI / 180;
+          gamma += data.d.gamma * inter * Math.PI / 180 * -1;
+        };
+      });
+
+      function shaderProgram(vertexSource, fragmentSource){
+        var vertexShader = gl.createShader(gl.VERTEX_SHADER);
+        var fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+        gl.shaderSource(vertexShader, vertexSource);
+        gl.compileShader(vertexShader);
+        if(!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)){
+          alert(gl.getShaderInfoLog(vertexShader) + "in vertexShader");
+          return null;
+        }
+        gl.shaderSource(fragmentShader, fragmentSource);
+        gl.compileShader(fragmentShader);
+        if(!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)){
+          alert(gl.getShaderInfoLog(fragmentShader) + "in fragmentShader");
+          return null;
+        }
+        var program = gl.createProgram();
+        gl.attachShader(program, vertexShader);
+        gl.attachShader(program, fragmentShader);
+        gl.linkProgram(program);
+        if(!gl.getProgramParameter(program, gl.LINK_STATUS)){
+          alert(gl.getProgramInfoLog(program));
+          return null;
+        }
+        gl.useProgram(program);
+        return program;
       }
-      window.requestAnimationFrame(onAnimationFrame);
-      })();
-    </script>
+
+      function generateVBO(data){
+        var vbo = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+        return vbo;
+      }
+
+      function generateIBO(data){
+        var ibo = gl.createBuffer();
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Int16Array(data), gl.STATIC_DRAW);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+        return ibo;
+      }
+
+      function setAttribute(vbo, attL, attS, ibo){
+        for(var i in vbo){
+          gl.bindBuffer(gl.ARRAY_BUFFER, vbo[i]);
+          gl.enableVertexAttribArray(attL[i]);
+          gl.vertexAttribPointer(attL[i], attS[i], gl.FLOAT, false, 0, 0);
+        }
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
+      }
+    }else{
+      alert("This devise is not supported")
+    }
+  })();
+};
+
+
+</script>
