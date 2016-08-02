@@ -24,6 +24,7 @@ window.onload = function(){
     	window.addEventListener("devicemotion", deviceMotion);
 
       // function loop
+      sendData();
       function sendData(){
         dispatcher.trigger("send_message", {chn: channel, d: d_motion, i: interval, aig: aig, acc: acc, reset: reset, action: action});
 
