@@ -25,13 +25,6 @@ window.onload = function(){
 
       // function loop
       sendData();
-      function sendData(){
-        dispatcher.trigger("send_message", {chn: channel, d: d_motion, i: interval, aig: aig, acc: acc, reset: reset, action: action});
-
-        reset = false;
-        action = false;
-        requestAnimationFrame(sendData);
-      }
     }else{
       // not surpported devise
       var actions = document.getElementById('actions');
@@ -41,13 +34,15 @@ window.onload = function(){
     }
   })();
 }
-// function main(){
-//   // listening devise motion
-  
-// }
 
 // send data function by websocket
+function sendData(){
+  dispatcher.trigger("send_message", {chn: channel, d: d_motion, i: interval, aig: aig, acc: acc, reset: reset, action: action});
 
+  reset = false;
+  action = false;
+  requestAnimationFrame(sendData);
+}
 
 // update device_motion data
 function deviceMotion(e){
