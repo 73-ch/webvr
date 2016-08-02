@@ -17,8 +17,9 @@
 </script>
 </head>
 <body>
-  <p>右のURLをスマートフォンで開いてください http://dry-falls-25691.herokuapp.com/send/<%= @channel %></p>
-  <button onClick="clicked()">ANGLE RESET</button>
+  <div id="nav">
+    <p>右のURLをスマートフォンで開いてください http://dry-falls-25691.herokuapp.com/send/<%= @channel %></p>
+  </div>
   <canvas id="canvas"></canvas>
 </body>
 <script>
@@ -39,6 +40,8 @@ var device;
 var aig;
 var acc;
 var vrDisplay = null;
+var nav = document.getElementById('nav');
+var reset = document.getElementById('reset');
 
 function clicked(){
   alpha = 0;
@@ -230,9 +233,12 @@ window.onload = function(){
       };
 
       channel.bind("send", function(data) {
-        console.log(data.aig);
-        console.log(data.acc);
-        if (data.d){
+        if (data.reset){
+          alpha = 0;
+          beta = 0;
+          gamma = 0;
+        }else{
+          nav.style.display = "none";
           var inter = data.i,
               rotation_rate = data.d;
           alpha += data.d.alpha * inter * Math.PI / 180 * -1;
