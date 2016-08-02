@@ -21,7 +21,16 @@ window.onload = function(){
     var ua = navigator.userAgent;
     if(ua.indexOf('iPhone') > 0 || ua.indexOf('iPod') > 0 || ua.indexOf('Android') > 0 && ua.indexOf('Mobile') > 0){
       // call main function
-    	main();
+    	window.addEventListener("devicemotion", deviceMotion);
+
+      // function loop
+      function sendData(){
+        dispatcher.trigger("send_message", {chn: channel, d: d_motion, i: interval, aig: aig, acc: acc, reset: reset, action: action});
+
+        reset = false;
+        action = false;
+        requestAnimationFrame(sendData);
+      }
     }else{
       // not surpported devise
       var actions = document.getElementById('actions');
@@ -31,21 +40,13 @@ window.onload = function(){
     }
   })();
 }
-function main(){
-  // listening devise motion
-  window.addEventListener("devicemotion", deviceMotion);
-
-  // function loop
-  requestAnimationFrame(sendData);
-}
+// function main(){
+//   // listening devise motion
+  
+// }
 
 // send data function by websocket
-function sendData(){
-  dispatcher.trigger("send_message", {chn: channel, d: d_motion, i: interval, aig: aig, acc: acc, reset: reset, action: action});
 
-  reset = false;
-  action = false;
-}
 
 // update device_motion data
 function deviceMotion(e){
