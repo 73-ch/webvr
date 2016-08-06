@@ -21,8 +21,9 @@
   uniform mat4 mvpMatrix;
   varying vec4 vColor;
   void main(){
+    float distance = distance(vec3(0.0, 0.0, 0.0), position) / 10.0;
     gl_Position = mvpMatrix * vec4(position, 1.0);
-    vColor = color;
+    vColor = vec4(color.r / distance, color.g / distance, color.b / distance, color.a);
   }
 </script>
 <script id="lfs" type="x-shader/x-fragment">
@@ -128,7 +129,7 @@ window.onload = function(){
       lAttStride[1] = 4;
 
       var linePostion = [0.0, 0.0, 0.0,
-                         0.0, 0.0, -3.0];
+                         0.0, 0.0, -1.5];
       var lineColor = [0.0, 0.0, 1.0, 1.0,
                        0.0, 0.0, 1.0, 1.0];
       var linePositionBuffer = generateVBO(linePostion),
@@ -193,7 +194,6 @@ window.onload = function(){
 
       function render(){
         stats.begin();
-        console.log(vrDisplay);
         c.height = window.innerHeight;
         c.width = window.innerWidth;
         gl.viewport(0.0, 0.0, c.width, c.height);
@@ -215,7 +215,7 @@ window.onload = function(){
           cameraPosition = pose.position;
           if (!orientation) { orientation = [0, 0, 0, 1]; }
           // if (!cameraPosition) { cameraPosition = [0, 0, 0]; }
-          cameraPosition = [0.0, 0.0, 0];
+          cameraPosition = [0.0, 0.0, 4.0];
           m.fromRotationTranslation(vMatrix, orientation, cameraPosition);
           m.inverse(vMatrix, vMatrix);
         } else {
@@ -270,13 +270,15 @@ window.onload = function(){
         }
 
         gl.useProgram(lPrograms);
-        gl.lineWidth(3.0);
+        gl.lineWidth(7.0);
         setAttribute(lineVBOList, lAttLocation, lAttStride, false);
         m.identity(lMMatrix);
         m.rotate(lMMatrix, alpha, [1.0, 0.0, 0.0], lMMatrix);
-        m.rotate(lMMatrix, beta, [0.0, 0.0, 1.0], lMMatrix);
-        m.rotate(lMMatrix, gamma, [0.0, 1.0, 0.0], lMMatrix);
+        m.rotate(lMMatrix, beta, [0.0, 1.0, 0.0], lMMatrix);
+        m.rotate(lMMatrix, gamma, [0.0, 0.0, 1.0], lMMatrix);
         m.translate(lMMatrix, [0.2, 0.0, -0.5], lMMatrix);
+        m.identity(vMatrix);
+        m.multiply(pMatrix, vMatrix, vpMatrix);
         m.multiply(vpMatrix, lMMatrix, lMvpMatrix);
         gl.uniformMatrix4fv(lUniLocation.mvpMatrix, false, lMvpMatrix);
         gl.drawArrays(gl.LINES, 0, 2);
@@ -298,9 +300,9 @@ window.onload = function(){
           nav.style.display = "none";
           var inter = data.i,
               rotation_rate = data.d;
-          alpha = data.d.alpha * inter * Math.PI / 180;
-          beta += data.d.beta * inter * Math.PI / 180 * -1;
-          gamma += data.d.gamma * inter * Math.PI / 180;
+          alpha += data.d.alpha * inter * Math.PI / 180;
+          beta += data.d.gamma * inter * Math.PI / 180;
+          gamma += data.d.beta * inter * Math.PI / 180;
         };
       });
 
