@@ -36,7 +36,7 @@ window.onload = function(){
 
 // send data function by websocket
 function sendData(){
-  dispatcher.trigger("send_message", {chn: channel, d: d_motion, i: interval, aig: aig, acc: acc, reset: reset, action: action});
+  dispatcher.trigger("send_message", {alpha: alpha, beta: beta, gamma: gamma});
 
   reset = false;
   action = false;
