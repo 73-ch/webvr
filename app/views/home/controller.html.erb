@@ -11,17 +11,16 @@ var dispatcher = new WebSocketRails("dry-falls-25691.herokuapp.com/websocket");
 var channel = "<%= @channel %>";
 var reset = false,
     action = false;
-var d_motion,
-    interval,
-    aig,
-    acc;
+var alpha,
+    beta,
+    gamma;
 
 window.onload = function(){
 	var getDevice = (function(){
     var ua = navigator.userAgent;
     if(ua.indexOf('iPhone') > 0 || ua.indexOf('iPod') > 0 || ua.indexOf('Android') > 0 && ua.indexOf('Mobile') > 0){
       // call main function
-    	window.addEventListener("devicemotion", deviceMotion);
+    	window.addEventListener("deviseorientation", deviceMotion);
 
       // function loop
       sendData();
@@ -46,9 +45,8 @@ function sendData(){
 
 // update device_motion data
 function deviceMotion(e){
-  d_motion = e.rotationRate;
-  interval = e.interval;
-  aig = e.accelerationIncludingGravity;
-  acc = e.acceleration;
+  alpha = e.alpha;
+  beta = e.beta;
+  gamma = e.gamma;
 }
 </script>

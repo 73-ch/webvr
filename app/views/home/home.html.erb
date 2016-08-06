@@ -298,11 +298,10 @@ window.onload = function(){
           gamma = 0;
         }else{
           nav.style.display = "none";
-          var inter = data.i,
-              rotation_rate = data.d;
-          alpha += data.d.alpha * inter * Math.PI / 180;
-          beta += data.d.gamma * inter * Math.PI / 180;
-          gamma += data.d.beta * inter * Math.PI / 180;
+          console.log(data);
+          alpha = data.alpha;
+          beta = data.beta;
+          gamma = data.gamma;
         };
       });
 
